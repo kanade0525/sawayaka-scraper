@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: さわやか店舗情報スクレイピングLambda関数
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 1024
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        NODE_ENV: production
+
+Resources:
+  # Lambda関数
+  SawayakaScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: sawayaka-scraper-function
+      CodeUri: ./
+      Handler: index.handler
+      Description: さわやか店舗情報をスクレイピングするLambda関数
+      Tags:
+        Project: sawayaka-scraper
+        Environment: production
+        Service: scraping
+      # 既存のIAMロールを使用
+      Role: arn:aws:iam::033212316171:role/service-role/sawayaka-scraper-role-iid4w5yu
+
+  # EventBridgeルール
+  SawayakaScraperRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: さわやかスクレイピングの定期実行ルール
+      ScheduleExpression: rate(1 hour)  # 1時間ごとに実行
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SawayakaScraperFunction.Arn
+          Id: SawayakaScraperTarget
+
+  # Lambda関数にEventBridgeからの実行権限を付与
+  SawayakaScraperPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SawayakaScraperFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SawayakaScraperRule.Arn
+
+Outputs:
+  SawayakaScraperFunction:
+    Description: さわやかスクレイピングLambda関数
+    Value: !Ref SawayakaScraperFunction
+    Export:
+      Name: SawayakaScraperFunction
+  
+  SawayakaScraperRule:
+    Description: EventBridgeルール
+    Value: !Ref SawayakaScraperRule
+    Export:
+      Name: SawayakaScraperRule

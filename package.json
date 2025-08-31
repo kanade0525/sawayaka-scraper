@@ -1,0 +1,23 @@
+{
+  "name": "sawayaka-scraper",
+  "version": "1.0.0",
+  "description": "さわやか店舗情報スクレイピングLambda関数",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "zip -r function.zip . -x '*.git*' 'node_modules/*' '*.zip'"
+  },
+  "keywords": ["aws", "lambda", "puppeteer", "scraping"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer-core": "^21.5.2",
+    "@sparticuz/chromium": "^119.0.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^21.5.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
