@@ -164,6 +164,33 @@ sawayaka_scraper/
 └── .gitignore           # Git管理対象外ファイル
 ```
 
+## 開発補助ツール
+
+### ESLint & Prettier
+
+本リポジトリはコード品質維持のため、ESLintとPrettierを導入しています。
+
+#### ルール設定
+
+- `.eslintrc.js` … ESLintの詳細設定
+- `.prettierrc` … Prettierのフォーマット設定
+
+#### 使い方
+
+依存パッケージは`npm install`で自動インストールされます。
+
+手動でチェック・修正する場合は以下を実行してください。
+
+```bash
+# ESLintでコードチェック
+npx eslint .
+
+# Prettierで自動整形
+npx prettier --write .
+```
+
+VSCode拡張機能「ESLint」「Prettier」も推奨です。
+
 ## ライセンス
 
 ISC License
