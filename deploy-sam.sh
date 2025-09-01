@@ -23,7 +23,7 @@ echo "✅ AWS認証情報が確認されました"
 
 # 依存関係のインストール
 echo "📦 依存関係をインストール中..."
-npm install --production
+npm install
 
 # SAMビルド
 echo "🔨 SAMビルドを実行中..."
@@ -46,6 +46,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "📋 デプロイされたリソース:"
     echo "   - Lambda関数: sawayaka-scraper-function"
+    echo "   - S3バケット: sawayaka-scraper-data-{ACCOUNT_ID}"
     echo "   - EventBridgeルール: sawayaka-scraper"
     echo ""
     echo "🔍 関数の確認方法:"
@@ -53,6 +54,15 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "📊 ログの確認方法:"
     echo "   sam logs -n SawayakaScraperFunction --tail"
+    echo ""
+    echo "📁 CSVファイルの確認方法:"
+    echo "   aws s3 ls s3://sawayaka-scraper-data-{ACCOUNT_ID}/shop-data/"
+    echo ""
+    echo "💾 機能:"
+    echo "   - さわやか全店舗の待ち時間情報をスクレイピング"
+    echo "   - CSVファイルとして自動生成"
+    echo "   - S3バケットに自動アップロード"
+    echo "   - 1時間ごとに自動実行"
 else
     echo "❌ SAMデプロイが失敗しました"
     exit 1

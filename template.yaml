@@ -12,6 +12,31 @@ Globals:
         NODE_ENV: production
 
 Resources:
+  # S3バケット
+  SawayakaScraperBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'sawayaka-scraper-data-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldFiles
+            Status: Enabled
+            ExpirationInDays: 90
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: sawayaka-scraper
+        - Key: Environment
+          Value: production
+        - Key: Service
+          Value: scraping
+
   # Lambda関数
   SawayakaScraperFunction:
     Type: AWS::Serverless::Function
@@ -20,6 +45,9 @@ Resources:
       CodeUri: ./
       Handler: index.handler
       Description: さわやか店舗情報をスクレイピングするLambda関数
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref SawayakaScraperBucket
       Tags:
         Project: sawayaka-scraper
         Environment: production
@@ -48,6 +76,12 @@ Resources:
       SourceArn: !GetAtt SawayakaScraperRule.Arn
 
 Outputs:
+  SawayakaScraperBucket:
+    Description: さわやかスクレイピングデータ保存用S3バケット
+    Value: !Ref SawayakaScraperBucket
+    Export:
+      Name: SawayakaScraperBucket
+
   SawayakaScraperFunction:
     Description: さわやかスクレイピングLambda関数
     Value: !Ref SawayakaScraperFunction

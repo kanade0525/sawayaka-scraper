@@ -1,5 +1,12 @@
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
+const AWS = require('aws-sdk');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const fs = require('fs');
+const path = require('path');
+
+// S3クライアントの初期化
+const s3 = new AWS.S3();
 
 exports.handler = async event => {
   console.log('Event:', JSON.stringify(event, null, 2));
@@ -69,14 +76,12 @@ exports.handler = async event => {
             ? waitCountElement.textContent.trim()
             : '--';
 
-          // 最初の5件のみ取得（テスト用）
-          if (index < 5) {
-            shops.push({
-              shopName: shopName,
-              waitTime: waitTime,
-              waitCount: waitCount,
-            });
-          }
+          // すべての店舗情報を取得
+          shops.push({
+            shopName: shopName,
+            waitTime: waitTime,
+            waitCount: waitCount,
+          });
         } catch (error) {
           console.error('店舗情報の取得中にエラー:', error);
         }
@@ -87,6 +92,53 @@ exports.handler = async event => {
 
     console.log('取得した店舗データ:', JSON.stringify(shopData, null, 2));
 
+    // CSVファイルの作成
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const csvFileName = `sawayaka-shops-${timestamp}.csv`;
+    const csvFilePath = `/tmp/${csvFileName}`;
+
+    // CSVライターの設定
+    const csvWriter = createCsvWriter({
+      path: csvFilePath,
+      header: [
+        { id: 'shopName', title: '店舗名' },
+        { id: 'waitTime', title: '待ち時間' },
+        { id: 'waitCount', title: '待ち組数' },
+        { id: 'timestamp', title: '取得日時' }
+      ]
+    });
+
+    // タイムスタンプを追加
+    const csvData = shopData.map(shop => ({
+      ...shop,
+      timestamp: new Date().toISOString()
+    }));
+
+    // CSVファイルに書き込み
+    await csvWriter.writeRecords(csvData);
+    console.log(`CSVファイルが作成されました: ${csvFilePath}`);
+
+    // S3にアップロード
+    const s3BucketName = process.env.S3_BUCKET_NAME || 'sawayaka-scraper-data';
+    const s3Key = `shop-data/${csvFileName}`;
+
+    const fileContent = fs.readFileSync(csvFilePath);
+    await s3.upload({
+      Bucket: s3BucketName,
+      Key: s3Key,
+      Body: fileContent,
+      ContentType: 'text/csv',
+      Metadata: {
+        'shop-count': shopData.length.toString(),
+        'scraped-at': new Date().toISOString()
+      }
+    }).promise();
+
+    console.log(`CSVファイルがS3にアップロードされました: s3://${s3BucketName}/${s3Key}`);
+
+    // 一時ファイルを削除
+    fs.unlinkSync(csvFilePath);
+
     // 結果を返す
     return {
       statusCode: 200,
@@ -95,10 +147,15 @@ exports.handler = async event => {
         'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify({
-        message: 'さわやか店舗情報の取得が完了しました',
+        message: 'さわやか店舗情報の取得とCSV書き出しが完了しました',
         timestamp: new Date().toISOString(),
         shopCount: shopData.length,
         shops: shopData,
+        csvFile: {
+          fileName: csvFileName,
+          s3Location: `s3://${s3BucketName}/${s3Key}`,
+          downloadUrl: `https://${s3BucketName}.s3.amazonaws.com/${s3Key}`
+        }
       }),
     };
   } catch (error) {
