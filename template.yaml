@@ -55,16 +55,9 @@ Resources:
       # 既存のIAMロールを使用
       Role: arn:aws:iam::033212316171:role/service-role/sawayaka-scraper-role-iid4w5yu
 
-  # EventBridgeルール
-  SawayakaScraperRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: さわやかスクレイピングの定期実行ルール
-      ScheduleExpression: rate(1 hour) # 1時間ごとに実行
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt SawayakaScraperFunction.Arn
-          Id: SawayakaScraperTarget
+  # 既存のEventBridgeルールを使用（新しいルールは作成しない）
+  # 既存のルールのARNを指定してください
+  # 例: arn:aws:events:ap-northeast-1:123456789012:rule/your-existing-rule-name
 
   # Lambda関数にEventBridgeからの実行権限を付与
   SawayakaScraperPermission:
@@ -73,7 +66,7 @@ Resources:
       FunctionName: !Ref SawayakaScraperFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt SawayakaScraperRule.Arn
+      SourceArn: 'arn:aws:events:ap-northeast-1:033212316171:rule/sawayaka-scraper'
 
 Outputs:
   SawayakaScraperBucket:
@@ -87,9 +80,3 @@ Outputs:
     Value: !Ref SawayakaScraperFunction
     Export:
       Name: SawayakaScraperFunction
-
-  SawayakaScraperRule:
-    Description: EventBridgeルール
-    Value: !Ref SawayakaScraperRule
-    Export:
-      Name: SawayakaScraperRule

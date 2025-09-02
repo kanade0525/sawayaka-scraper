@@ -92,9 +92,19 @@ exports.handler = async event => {
 
     console.log('取得した店舗データ:', JSON.stringify(shopData, null, 2));
 
-    // CSVファイルの作成
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const csvFileName = `sawayaka-shops-${timestamp}.csv`;
+    // CSVファイルの作成（1時間ごとの実行に合わせて時間を00分に統一、日本時間使用）
+    const now = new Date();
+    // 日本時間（JST = UTC+9）に変換
+    const jstOffset = 9 * 60; // 9時間 = 540分
+    const jstTime = new Date(now.getTime() + jstOffset * 60 * 1000);
+    
+    const hourTimestamp = new Date(jstTime.getFullYear(), jstTime.getMonth(), jstTime.getDate(), jstTime.getHours(), 0, 0, 0);
+    const formattedTimestamp = hourTimestamp.toISOString()
+      .replace(/T/, '-')
+      .replace(/\..+/, '')
+      .replace(/:/g, '-');
+    
+    const csvFileName = `${formattedTimestamp}.csv`;
     const csvFilePath = `/tmp/${csvFileName}`;
 
     // CSVライターの設定
@@ -104,23 +114,51 @@ exports.handler = async event => {
         { id: 'shopName', title: '店舗名' },
         { id: 'waitTime', title: '待ち時間' },
         { id: 'waitCount', title: '待ち組数' },
-        { id: 'timestamp', title: '取得日時' }
+        { id: 'timestamp', title: '取得日時（日本時間）' }
       ]
     });
 
-    // タイムスタンプを追加
-    const csvData = shopData.map(shop => ({
-      ...shop,
-      timestamp: new Date().toISOString()
-    }));
+    // タイムスタンプを追加（日本時間使用、読みやすい形式）
+    const csvData = shopData.map(shop => {
+      const jstTime = new Date(now.getTime() + jstOffset * 60 * 1000);
+      const jstFormatted = jstTime.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      
+      return {
+        ...shop,
+        timestamp: jstFormatted
+      };
+    });
 
     // CSVファイルに書き込み
     await csvWriter.writeRecords(csvData);
-    console.log(`CSVファイルが作成されました: ${csvFilePath}`);
+    console.log(`CSVファイルが作成されました: ${csvFilePath} (ファイル名: ${csvFileName})`);
 
-    // S3にアップロード
+    // S3にアップロード（既存ファイルがある場合は上書き）
     const s3BucketName = process.env.S3_BUCKET_NAME || 'sawayaka-scraper-data';
-    const s3Key = `shop-data/${csvFileName}`;
+    const s3Key = csvFileName;
+
+    // 既存ファイルの存在確認
+    try {
+      await s3.headObject({
+        Bucket: s3BucketName,
+        Key: s3Key
+      }).promise();
+      console.log(`既存のファイルが見つかりました: ${s3Key} - 上書きします`);
+    } catch (error) {
+      if (error.code === 'NotFound') {
+        console.log(`新しいファイルを作成します: ${s3Key}`);
+      } else {
+        console.log(`ファイル存在確認中にエラーが発生しました: ${error.message}`);
+      }
+    }
 
     const fileContent = fs.readFileSync(csvFilePath);
     await s3.upload({
@@ -130,7 +168,7 @@ exports.handler = async event => {
       ContentType: 'text/csv',
       Metadata: {
         'shop-count': shopData.length.toString(),
-        'scraped-at': new Date().toISOString()
+        'scraped-at': new Date(now.getTime() + jstOffset * 60 * 1000).toISOString()
       }
     }).promise();
 
@@ -147,8 +185,8 @@ exports.handler = async event => {
         'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify({
-        message: 'さわやか店舗情報の取得とCSV書き出しが完了しました',
-        timestamp: new Date().toISOString(),
+        message: `さわやか店舗情報の取得とCSV書き出しが完了しました (ファイル: ${csvFileName})`,
+        timestamp: new Date(now.getTime() + jstOffset * 60 * 1000).toISOString(),
         shopCount: shopData.length,
         shops: shopData,
         csvFile: {
@@ -170,7 +208,7 @@ exports.handler = async event => {
       body: JSON.stringify({
         message: 'エラーが発生しました',
         error: error.message,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(now.getTime() + jstOffset * 60 * 1000).toISOString(),
       }),
     };
   } finally {
