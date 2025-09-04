@@ -120,8 +120,7 @@ exports.handler = async event => {
 
     // タイムスタンプを追加（日本時間使用、読みやすい形式）
     const csvData = shopData.map(shop => {
-      const jstTime = new Date(now.getTime() + jstOffset * 60 * 1000);
-      const jstFormatted = jstTime.toLocaleString('ja-JP', {
+      const jstFormatted = new Date().toLocaleString('ja-JP', {
         timeZone: 'Asia/Tokyo',
         year: 'numeric',
         month: '2-digit',
@@ -130,7 +129,7 @@ exports.handler = async event => {
         minute: '2-digit',
         second: '2-digit'
       });
-      
+
       return {
         ...shop,
         timestamp: jstFormatted
